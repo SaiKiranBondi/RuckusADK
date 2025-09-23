@@ -1,26 +1,17 @@
 from google.adk.agents import LlmAgent
 from tools.test_execution_tools import execute_tests_sandboxed, parse_test_results
+from .prompts import get_test_runner_prompt
 
-test_runner_agent = LlmAgent(
-    name="TestRunner",
-    description="Executes generated test code against the original source code in a secure sandbox and parses the results.",
-    model="gemini-2.5-pro",
-    instruction="""
-    You are a highly reliable test execution engine.
-    Your task is to execute a given test suite against its corresponding source code and report the results in a structured format.
+# Create the agent with dynamic instruction based on language
+def create_test_runner_agent(language: str = "python"):
+    """Create a test runner agent for the specified language."""
+    return LlmAgent(
+        name="TestRunner",
+        description="Executes generated test code against the original source code in a secure sandbox and parses the results.",
+        model="gemini-2.5-pro",
+        instruction=get_test_runner_prompt(language),
+        tools=[execute_tests_sandboxed, parse_test_results]
+    )
 
-    You will receive the target language in the `{language}` state variable. Based on this:
-    - For Python: Use pytest execution
-    - For C: Use Unity framework execution
-
-    You must follow this two-step process precisely:
-    1.  Call the `execute_tests_sandboxed` tool, passing the `source_code_under_test`, `generated_test_code`, and `language` from state.
-    2.  Take the entire, raw JSON output from the `execute_tests_sandboxed` tool and immediately pass it as the `raw_execution_output` argument to the `parse_test_results` tool, along with the `language` from state.
-    
-    Your final output must be only the structured JSON object returned by the `parse_test_results` tool. Do not add any commentary or explanation.
-    """,
-    tools=[
-        execute_tests_sandboxed,
-        parse_test_results
-    ]
-)
+# Default agent (will be updated dynamically)
+test_runner_agent = create_test_runner_agent("python")

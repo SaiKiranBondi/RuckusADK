@@ -1,13 +1,16 @@
 import asyncio
 import json
 import re
+import subprocess
+import os
+import sys
 from google.adk.runners import Runner
 from google.genai import types
 from google.adk.sessions import InMemorySessionService
 from dotenv import load_dotenv
 
-# Import the fully assembled root agent from our coordinator module
-from agents.coordinator import root_agent
+# Import the coordinator module to create root agent dynamically
+from agents.coordinator import create_root_agent
 
 # Use a shared session service for the application
 session_service = InMemorySessionService()
@@ -20,6 +23,100 @@ def detect_language(file_path: str) -> str:
         return 'c'
     else:
         raise ValueError(f"Unsupported file type: {file_path}")
+
+def run_python_tests():
+    """Run pytest on the generated Python test file."""
+    print("\n" + "="*60)
+    print("🧪 RUNNING PYTHON TESTS")
+    print("="*60)
+    
+    try:
+        # Run pytest with verbose output
+        result = subprocess.run([
+            sys.executable, "-m", "pytest", "final_test_suite.py", "-v", "--tb=short"
+        ], capture_output=True, text=True, cwd=".")
+        
+        print("STDOUT:")
+        print(result.stdout)
+        if result.stderr:
+            print("STDERR:")
+            print(result.stderr)
+        
+        print(f"\nExit code: {result.returncode}")
+        if result.returncode == 0:
+            print("✅ All Python tests passed!")
+        else:
+            print("❌ Some Python tests failed!")
+            
+    except FileNotFoundError:
+        print("❌ pytest not found. Please install pytest: pip install pytest")
+    except Exception as e:
+        print(f"❌ Error running Python tests: {e}")
+
+def run_c_tests():
+    """Run Unity tests on the generated C test file."""
+    print("\n" + "="*60)
+    print("🔧 RUNNING C TESTS")
+    print("="*60)
+    
+    try:
+        # First, check if gcc is available
+        gcc_check = subprocess.run(["gcc", "--version"], capture_output=True, text=True)
+        if gcc_check.returncode != 0:
+            print("❌ gcc compiler not found. Please install gcc.")
+            return
+        
+        # Create a simple test runner
+        test_runner_content = '''#include "unity.h"
+#include "final_test_suite.c"
+
+int main(void) {
+    UNITY_BEGIN();
+    
+    // Test function calls will be added here
+    
+    return UNITY_END();
+}
+'''
+        
+        with open("test_runner.c", "w") as f:
+            f.write(test_runner_content)
+        
+        # Compile the test
+        compile_result = subprocess.run([
+            "gcc", "-o", "test_runner", "test_runner.c", "final_test_suite.c", "-I.", "-std=c99"
+        ], capture_output=True, text=True)
+        
+        if compile_result.returncode != 0:
+            print("❌ Compilation failed:")
+            print(compile_result.stderr)
+            return
+        
+        # Run the test
+        result = subprocess.run(["./test_runner"], capture_output=True, text=True)
+        
+        print("STDOUT:")
+        print(result.stdout)
+        if result.stderr:
+            print("STDERR:")
+            print(result.stderr)
+        
+        print(f"\nExit code: {result.returncode}")
+        if result.returncode == 0:
+            print("✅ All C tests passed!")
+        else:
+            print("❌ Some C tests failed!")
+            
+        # Clean up
+        if os.path.exists("test_runner"):
+            os.remove("test_runner")
+        if os.path.exists("test_runner.c"):
+            os.remove("test_runner.c")
+            
+    except FileNotFoundError:
+        print("❌ gcc compiler not found. Please install gcc.")
+    except Exception as e:
+        print(f"❌ Error running C tests: {e}")
 
 async def main():
     print("--- Starting Autonomous Test Suite Generation System ---")
@@ -44,7 +141,10 @@ async def main():
         print(f"Error loading file: {e}")
         return
 
-    # 2. Instantiate the ADK Runner with our master agent
+    # 2. Create the root agent for the detected language
+    root_agent = create_root_agent(language)
+    
+    # 3. Instantiate the ADK Runner with our master agent
     # We pass the shared session_service instance here.
     runner = Runner(
         app_name="autotest_suite_generator",
@@ -102,6 +202,8 @@ async def main():
     print(final_output)
 
     # Try to extract code block for saving based on language
+    test_file_saved = False
+    
     if language == 'python':
         python_code_match = re.search(r"```python\n([\s\S]+?)\n```", final_output, re.DOTALL)
         if python_code_match:
@@ -109,6 +211,7 @@ async def main():
             with open("final_test_suite.py", "w") as f:
                 f.write(final_code)
             print("\n--- Final test suite saved to `final_test_suite.py` ---")
+            test_file_saved = True
         else:
             print("\n--- Could not extract a Python code block to save to file. ---")
     
@@ -119,11 +222,19 @@ async def main():
             with open("final_test_suite.c", "w") as f:
                 f.write(final_code)
             print("\n--- Final test suite saved to `final_test_suite.c` ---")
+            test_file_saved = True
         else:
             print("\n--- Could not extract a C code block to save to file. ---")
     
     else:
         print(f"\n--- Unsupported language '{language}' for final output. ---")
+    
+    # Run the generated tests
+    if test_file_saved:
+        if language == 'python':
+            run_python_tests()
+        elif language == 'c':
+            run_c_tests()
 
 
 if __name__ == "__main__":

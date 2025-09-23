@@ -6,11 +6,11 @@ from google.adk.tools.base_tool import BaseTool
 from google.genai import types
 
 # Import the individual agent instances and the new workflow tool
-from .code_analyzer import code_analyzer_agent
-from .test_case_designer import test_case_designer_agent
-from .test_implementer import test_implementer_agent
-from .test_runner import test_runner_agent
-from .debugger_and_refiner import debugger_and_refiner_agent
+from .code_analyzer import create_code_analyzer_agent
+from .test_case_designer import create_test_case_designer_agent
+from .test_implementer import create_test_implementer_agent
+from .test_runner import create_test_runner_agent
+from .debugger_and_refiner import create_debugger_and_refiner_agent
 from tools.workflow_tools import exit_loop
 
 # --- State Initialization ---
@@ -51,15 +51,14 @@ def save_analysis_to_state(tool: BaseTool, args: dict, tool_context: ToolContext
 # --- Configure Individual Agents for the Workflow ---
 
 # 1. CodeAnalyzer: Use the callback to save output.
-code_analyzer_agent.after_tool_callback = save_analysis_to_state
+# 1. CodeAnalyzer: Read from `source_code`, save to `static_analysis_report`.
+# Note: CodeAnalyzer agent is now created dynamically, so callbacks are handled in the factory function
 
 # 2. TestCaseDesigner: Read from `static_analysis_report`, save to `test_scenarios`.
-test_case_designer_agent.instruction += "\n\nYou will receive the static analysis report in the `{static_analysis_report}` state variable."
-test_case_designer_agent.output_key = "test_scenarios"
+# Note: TestCaseDesigner agent is now created dynamically, so instructions are handled in the factory function
 
 # 3. TestImplementer: Read from `test_scenarios` and `language`, save to `generated_test_code`.
-test_implementer_agent.instruction += "\n\nYou will receive the test scenarios in the `{test_scenarios}` state variable and the target language in the `{language}` state variable."
-test_implementer_agent.output_key = "generated_test_code"
+# Note: TestImplementer agent is now created dynamically, so this instruction is handled in the prompts.py file
 
 # 4. TestRunner: Read `source_code` & `generated_test_code`, save to `test_results`.
 async def build_test_runner_instruction(ctx: CallbackContext) -> str:
@@ -82,64 +81,58 @@ async def build_test_runner_instruction(ctx: CallbackContext) -> str:
     Second, take the entire, raw JSON output from `execute_tests_sandboxed` and immediately pass it as the `raw_execution_output` argument to the `parse_test_results` tool, along with the `language` parameter.
     Your final output must be only the structured JSON object returned by the `parse_test_results` tool. Do not add any commentary or explanation.
     """
-test_runner_agent.instruction = build_test_runner_instruction
-test_runner_agent.output_key = "test_results"
-
-
 # 5. DebuggerAndRefiner: Read all context, save corrected code back to `generated_test_code`.
-debugger_and_refiner_agent.tools.append(exit_loop)
-debugger_and_refiner_agent.instruction = """
-You are an expert Senior Software Debugging Engineer. Your sole purpose is to analyze a failed test run and fix the generated test code.
-
-You have access to the following information from the shared state:
-- `{static_analysis_report}`: A JSON report describing the original source code's structure.
-- `{generated_test_code}`: The full Python test code that failed. This is the code you must fix.
-- `{test_results}`: A structured JSON report from the test runner, detailing the failure.
-
-Your task is to meticulously analyze the `test_results`. If the `status` is "PASS", your job is done and you MUST call the `exit_loop` tool immediately.
-
-If the `status` is "FAIL", you must rewrite the `generated_test_code` to fix the errors identified in the `test_results`.
-
-**CRITICAL INSTRUCTIONS:**
-- If tests passed, call `exit_loop()`.
-- If tests failed, your output MUST be only the complete, corrected Python test code.
-- Ensure the corrected code includes the necessary imports to run, such as `import pytest` and importing the code under test from `source_to_test` (e.g., `from source_to_test import YourClass, your_function`).
-- Do NOT include any explanations, comments, or markdown formatting like ```python.
-"""
-debugger_and_refiner_agent.output_key = "generated_test_code"
+# Note: DebuggerAndRefiner agent is now created dynamically, so this instruction is handled in the prompts.py file
 
 
 # --- Assemble Workflow Agents ---
 
-# The first part of the workflow is a deterministic sequence.
-generation_pipeline = SequentialAgent(
-    name="GenerationPipeline",
-    description="Analyzes code and designs test scenarios in a strict sequence.",
-    sub_agents=[
-        code_analyzer_agent,
-        test_case_designer_agent,
-        test_implementer_agent,
-        
-    ]
-)
+def create_workflow_agents(language: str = "python"):
+    """Create workflow agents for the specified language."""
+    # Create fresh agent instances
+    code_analyzer = create_code_analyzer_agent()
+    test_case_designer = create_test_case_designer_agent()
+    test_implementer = create_test_implementer_agent(language)
+    test_runner = create_test_runner_agent(language)
+    debugger_and_refiner = create_debugger_and_refiner_agent(language)
+    
+    # Set up callbacks and output keys
+    code_analyzer.after_tool_callback = save_analysis_to_state
+    
+    # The first part of the workflow is a deterministic sequence.
+    generation_pipeline = SequentialAgent(
+        name="GenerationPipeline",
+        description="Analyzes code and designs test scenarios in a strict sequence.",
+        sub_agents=[
+            code_analyzer,
+            test_case_designer,
+            test_implementer,
+        ]
+    )
 
-# The second part is an iterative loop for implementation and refinement.
-refinement_loop = LoopAgent(
-    name="RefinementLoop",
-    description="An iterative workflow that implements, runs, and debugs test code until it passes or max attempts are reached.",
-    sub_agents=[
-        test_runner_agent,
-        debugger_and_refiner_agent
-    ],
-    max_iterations=3
-)
+    # The second part is an iterative loop for implementation and refinement.
+    refinement_loop = LoopAgent(
+        name="RefinementLoop",
+        description="An iterative workflow that implements, runs, and debugs test code until it passes or max attempts are reached.",
+        sub_agents=[
+            test_runner,
+            debugger_and_refiner
+        ],
+        max_iterations=3
+    )
+    
+    return generation_pipeline, refinement_loop
 
-# The final agent presents the result to the user.
-result_summarizer_agent = LlmAgent(
-    name="ResultSummarizer",
-    description="Summarizes the final test generation results for the user.",
-    model="gemini-2.5-pro",
-    instruction="""You are the final reporting agent. Your task is to present the results to the user based on the final shared state.
+# Default workflow agents (will be updated dynamically)
+generation_pipeline, refinement_loop = create_workflow_agents("python")
+
+def create_result_summarizer_agent():
+    """Create a fresh result summarizer agent instance."""
+    return LlmAgent(
+        name="ResultSummarizer",
+        description="Summarizes the final test generation results for the user.",
+        model="gemini-2.5-pro",
+        instruction="""You are the final reporting agent. Your task is to present the results to the user based on the final shared state.
 1. Retrieve the final test code from the `{generated_test_code}` state variable.
 2. Retrieve the target language from the `{language}` state variable.
 3. Inspect the `{test_results}` from the shared state.
@@ -152,16 +145,28 @@ Based on the language:
 - If `test_results.status` is "PASS", your final answer MUST be only the modified code, enclosed in the appropriate markdown block (```python for Python, ```c for C).
 - If `test_results.status` is anything other than "PASS", respond with a message explaining that the tests could not be automatically fixed. You MUST include both the modified code (in the appropriate markdown block) and the final `{test_results}` (in a json markdown block) to help the user debug manually.
 """,
-)
+    )
 
-# The root_agent is now a SequentialAgent that controls the deterministic high-level workflow.
-root_agent = SequentialAgent(
-    name="CoordinatorAgent",
-    description="The master orchestrator for the autonomous test suite generation system.",
-    sub_agents=[
-        generation_pipeline,
-        refinement_loop,
-        result_summarizer_agent,
-    ],
-    before_agent_callback=initialize_state
-)
+# Default agent (will be updated dynamically)
+result_summarizer_agent = create_result_summarizer_agent()
+
+def create_root_agent(language: str = "python"):
+    """Create the root agent for the specified language."""
+    # Create language-specific workflow agents
+    generation_pipeline, refinement_loop = create_workflow_agents(language)
+    result_summarizer = create_result_summarizer_agent()
+    
+    # The root_agent is now a SequentialAgent that controls the deterministic high-level workflow.
+    return SequentialAgent(
+        name="CoordinatorAgent",
+        description="The master orchestrator for the autonomous test suite generation system.",
+        sub_agents=[
+            generation_pipeline,
+            refinement_loop,
+            result_summarizer,
+        ],
+        before_agent_callback=initialize_state
+    )
+
+# Default root agent (will be updated dynamically)
+root_agent = create_root_agent("python")
