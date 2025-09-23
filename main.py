@@ -17,10 +17,10 @@ async def main():
     
     # 1. Load the source code we want to test
     try:
-        with open("sample_code.py", "r") as f:
+        with open("examples/sample_code.py", "r") as f:
             source_code_to_test = f.read()
     except FileNotFoundError:
-        print("Error: `sample_code.py` not found. Please ensure the file exists.")
+        print("Error: `examples/sample_code.py` not found. Please ensure the file exists.")
         return
 
     # 2. Instantiate the ADK Runner with our master agent
@@ -84,9 +84,9 @@ async def main():
     python_code_match = re.search(r"```python\n([\s\S]+?)\n```", final_output, re.DOTALL)
     if python_code_match:
         final_code = python_code_match.group(1).strip()
-        with open("final_test_suite.py", "w") as f:
+        with open("tests/final_test_suite.py", "w") as f:
             f.write(final_code)
-        print("\n--- Final test suite saved to `final_test_suite.py` ---")
+        print("\n--- Final test suite saved to `tests/final_test_suite.py` ---")
     else:
         print("\n--- Could not extract a Python code block to save to file. ---")
 
