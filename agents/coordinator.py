@@ -22,7 +22,7 @@ def initialize_state(callback_context: CallbackContext):
         try:
             initial_data = json.loads(user_content.parts[0].text)
             callback_context.state['source_code'] = initial_data.get('source_code')
-            callback_context.state['language'] = initial_data.get('language')
+            callback_context.state['language'] = initial_data.get('language', 'python')
             # Initialize test_results to ensure the final agent doesn't fail
             # if the loop is skipped or fails early.
             callback_context.state['test_results'] = {"status": "UNKNOWN"}
@@ -57,8 +57,8 @@ code_analyzer_agent.after_tool_callback = save_analysis_to_state
 test_case_designer_agent.instruction += "\n\nYou will receive the static analysis report in the `{static_analysis_report}` state variable."
 test_case_designer_agent.output_key = "test_scenarios"
 
-# 3. TestImplementer: Read from `test_scenarios`, save to `generated_test_code`.
-test_implementer_agent.instruction += "\n\nYou will receive the test scenarios in the `{test_scenarios}` state variable."
+# 3. TestImplementer: Read from `test_scenarios` and `language`, save to `generated_test_code`.
+test_implementer_agent.instruction += "\n\nYou will receive the test scenarios in the `{test_scenarios}` state variable and the target language in the `{language}` state variable."
 test_implementer_agent.output_key = "generated_test_code"
 
 # 4. TestRunner: Read `source_code` & `generated_test_code`, save to `test_results`.
@@ -66,6 +66,7 @@ async def build_test_runner_instruction(ctx: CallbackContext) -> str:
     """Dynamically creates the prompt for the test runner with code from the state."""
     source_code = ctx.state.get('source_code', '')
     generated_code = ctx.state.get('generated_test_code', '')
+    language = ctx.state.get('language', 'python')
 
     source_code_json_str = json.dumps(source_code)
     generated_code_json_str = json.dumps(generated_code)
@@ -73,11 +74,12 @@ async def build_test_runner_instruction(ctx: CallbackContext) -> str:
     return f"""
     You are a highly reliable test execution engine. Your task is to execute a test suite against source code.
 
-    First, call the `execute_tests_sandboxed` tool with the following two arguments:
+    First, call the `execute_tests_sandboxed` tool with the following three arguments:
     - `source_code_under_test`: Set this to the string {source_code_json_str}
     - `generated_test_code`: Set this to the string {generated_code_json_str}
+    - `language`: Set this to the string "{language}"
 
-    Second, take the entire, raw JSON output from `execute_tests_sandboxed` and immediately pass it as the `raw_execution_output` argument to the `parse_test_results` tool.
+    Second, take the entire, raw JSON output from `execute_tests_sandboxed` and immediately pass it as the `raw_execution_output` argument to the `parse_test_results` tool, along with the `language` parameter.
     Your final output must be only the structured JSON object returned by the `parse_test_results` tool. Do not add any commentary or explanation.
     """
 test_runner_agent.instruction = build_test_runner_instruction
@@ -139,10 +141,16 @@ result_summarizer_agent = LlmAgent(
     model="gemini-2.5-pro",
     instruction="""You are the final reporting agent. Your task is to present the results to the user based on the final shared state.
 1. Retrieve the final test code from the `{generated_test_code}` state variable.
-2. **CRITICAL:** In the retrieved code, find the line `from source_to_test import ...` and change it to `from sample_code import ...`. This is because the final test suite will be run against `sample_code.py`.
+2. Retrieve the target language from the `{language}` state variable.
 3. Inspect the `{test_results}` from the shared state.
-- If `test_results.status` is "PASS", your final answer MUST be only the modified Python code, enclosed in a python markdown block.
-- If `test_results.status` is anything other than "PASS", respond with a message explaining that the tests could not be automatically fixed. You MUST include both the modified Python code from step 2 (in a python markdown block) and the final `{test_results}` (in a json markdown block) to help the user debug manually.
+
+Based on the language:
+- For Python: Find the line `from source_to_test import ...` and change it to `from sample_code import ...`
+- For C: Ensure proper includes and function declarations are present
+
+4. Format the final output:
+- If `test_results.status` is "PASS", your final answer MUST be only the modified code, enclosed in the appropriate markdown block (```python for Python, ```c for C).
+- If `test_results.status` is anything other than "PASS", respond with a message explaining that the tests could not be automatically fixed. You MUST include both the modified code (in the appropriate markdown block) and the final `{test_results}` (in a json markdown block) to help the user debug manually.
 """,
 )
 

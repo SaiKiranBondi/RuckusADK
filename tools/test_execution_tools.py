@@ -25,9 +25,33 @@ class TestResult(BaseModel):
 
 # --- Tool Implementations ---
 
-def execute_tests_sandboxed(source_code_under_test: str, generated_test_code: str) -> Dict[str, Any]:
+def execute_tests_sandboxed(source_code_under_test: str, generated_test_code: str, language: str = 'python') -> Dict[str, Any]:
     """
-    Executes generated tests against source code locally in a temporary virtual environment.
+    Executes generated tests against source code locally in a temporary environment.
+    
+    Args:
+        source_code_under_test: The original source code as a string.
+        generated_test_code: The generated test code as a string.
+        language: The programming language (e.g., 'python', 'c').
+
+    Returns:
+        A dictionary containing the raw stdout, stderr, and exit code from the execution.
+    """
+    if language.lower() == 'python':
+        return execute_python_tests_sandboxed(source_code_under_test, generated_test_code)
+    elif language.lower() == 'c':
+        from tools.c_test_execution_tools import execute_c_tests_sandboxed
+        return execute_c_tests_sandboxed(source_code_under_test, generated_test_code)
+    else:
+        return {
+            "exit_code": -1,
+            "stdout": "",
+            "stderr": f"Unsupported language: {language}"
+        }
+
+def execute_python_tests_sandboxed(source_code_under_test: str, generated_test_code: str) -> Dict[str, Any]:
+    """
+    Executes Python tests against source code locally in a temporary virtual environment.
     
     Args:
         source_code_under_test: The original source code as a string.
@@ -115,12 +139,35 @@ def execute_tests_sandboxed(source_code_under_test: str, generated_test_code: st
     # temp_dir and its contents (venv, files) are automatically deleted here
 
 
-def parse_test_results(raw_execution_output: Dict[str, Any]) -> Dict[str, Any]:
+def parse_test_results(raw_execution_output: Dict[str, Any], language: str = 'python') -> Dict[str, Any]:
     """
     Parses the raw output from the sandboxed execution into a structured JSON object.
 
     Args:
         raw_execution_output: The dictionary returned by execute_tests_sandboxed.
+        language: The programming language (e.g., 'python', 'c').
+
+    Returns:
+        A dictionary conforming to the TestResult schema.
+    """
+    if language.lower() == 'python':
+        return parse_python_test_results(raw_execution_output)
+    elif language.lower() == 'c':
+        from tools.c_test_execution_tools import parse_c_test_results
+        return parse_c_test_results(raw_execution_output)
+    else:
+        return {
+            "status": "FAIL",
+            "summary": f"Unsupported language: {language}",
+            "failures": []
+        }
+
+def parse_python_test_results(raw_execution_output: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Parses the raw output from Python test execution into a structured JSON object.
+
+    Args:
+        raw_execution_output: The dictionary returned by execute_python_tests_sandboxed.
 
     Returns:
         A dictionary conforming to the TestResult schema.

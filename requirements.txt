@@ -1,3 +1,4 @@
 google-adk
 pydantic
 pytest
+pycparser>=2.21

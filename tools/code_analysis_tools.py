@@ -67,7 +67,7 @@ def analyze_code_structure(source_code: str, language: str) -> Dict[str, Any]:
     
     Args:
         source_code: The source code to be analyzed as a string.
-        language: The programming language of the source code (e.g., 'python', 'java').
+        language: The programming language of the source code (e.g., 'python', 'c').
         
     Returns:
         A JSON-serializable dictionary representing the code structure.
@@ -81,9 +81,10 @@ def analyze_code_structure(source_code: str, language: str) -> Dict[str, Any]:
         except SyntaxError as e:
             return {"status": "error", "message": f"Python syntax error: {e}"}
     
-    elif language.lower() == 'java':
-        # Placeholder for Java parsing logic using a library like javalang or py-javaparser
-        raise NotImplementedError("Java code analysis is not yet implemented.")
+    elif language.lower() == 'c':
+        # Import C analysis tools
+        from tools.c_analysis_tools import analyze_c_code_structure
+        return analyze_c_code_structure(source_code)
     
     else:
         return {"status": "error", "message": f"Unsupported language: {language}"}

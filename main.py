@@ -12,15 +12,36 @@ from agents.coordinator import root_agent
 # Use a shared session service for the application
 session_service = InMemorySessionService()
 
+def detect_language(file_path: str) -> str:
+    """Detect programming language based on file extension."""
+    if file_path.endswith('.py'):
+        return 'python'
+    elif file_path.endswith('.c'):
+        return 'c'
+    else:
+        raise ValueError(f"Unsupported file type: {file_path}")
+
 async def main():
     print("--- Starting Autonomous Test Suite Generation System ---")
     
-    # 1. Load the source code we want to test
+    # 1. Configuration: Change this variable to test different files
+    # Available options:
+    # - "sample_code.py" (Python)
+    # - "examples/sample_code.c" (C)
+    # - Any other .py or .c file path
+    TEST_FILE_PATH = "sample_code.c"  # Change this to test different files
+    
+    # 2. Load the source code we want to test
     try:
-        with open("sample_code.py", "r") as f:
+        with open(TEST_FILE_PATH, "r") as f:
             source_code_to_test = f.read()
+        language = detect_language(TEST_FILE_PATH)
+        print(f"Testing file: {TEST_FILE_PATH} (Language: {language})")
     except FileNotFoundError:
-        print("Error: `sample_code.py` not found. Please ensure the file exists.")
+        print(f"Error: File '{TEST_FILE_PATH}' not found. Please ensure the file exists.")
+        return
+    except Exception as e:
+        print(f"Error loading file: {e}")
         return
 
     # 2. Instantiate the ADK Runner with our master agent
@@ -41,7 +62,7 @@ async def main():
     # The `initialize_state` callback on our root agent will parse this.
     initial_request = json.dumps({
         "source_code": source_code_to_test,
-        "language": "python"
+        "language": language
     })
     
     print(f"\n[USER REQUEST] Generating tests for:\n---\n{source_code_to_test}\n---\n")
@@ -80,15 +101,29 @@ async def main():
     
     print(final_output)
 
-    # Try to extract just the python code block for saving
-    python_code_match = re.search(r"```python\n([\s\S]+?)\n```", final_output, re.DOTALL)
-    if python_code_match:
-        final_code = python_code_match.group(1).strip()
-        with open("final_test_suite.py", "w") as f:
-            f.write(final_code)
-        print("\n--- Final test suite saved to `final_test_suite.py` ---")
+    # Try to extract code block for saving based on language
+    if language == 'python':
+        python_code_match = re.search(r"```python\n([\s\S]+?)\n```", final_output, re.DOTALL)
+        if python_code_match:
+            final_code = python_code_match.group(1).strip()
+            with open("final_test_suite.py", "w") as f:
+                f.write(final_code)
+            print("\n--- Final test suite saved to `final_test_suite.py` ---")
+        else:
+            print("\n--- Could not extract a Python code block to save to file. ---")
+    
+    elif language == 'c':
+        c_code_match = re.search(r"```c\n([\s\S]+?)\n```", final_output, re.DOTALL)
+        if c_code_match:
+            final_code = c_code_match.group(1).strip()
+            with open("final_test_suite.c", "w") as f:
+                f.write(final_code)
+            print("\n--- Final test suite saved to `final_test_suite.c` ---")
+        else:
+            print("\n--- Could not extract a C code block to save to file. ---")
+    
     else:
-        print("\n--- Could not extract a Python code block to save to file. ---")
+        print(f"\n--- Unsupported language '{language}' for final output. ---")
 
 
 if __name__ == "__main__":
