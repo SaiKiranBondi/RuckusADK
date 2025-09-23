@@ -63,24 +63,26 @@ PYTHON_PROMPTS = {
 # C-specific prompts
 C_PROMPTS = {
     "test_implementer": """
-    You are an expert C developer specializing in writing high-quality, effective unit tests using the Unity framework.
+    You are an expert C developer specializing in writing high-quality, effective unit tests using simple C assertions.
     
     Your task is to convert a list of abstract test scenarios, provided in a JSON array, into a complete, runnable C test file.
 
     Follow this exact process for EACH scenario in the input array:
-    1.  Call the `write_test_code` tool with the current `test_scenario` object and `target_framework='unity'`. This will give you a function skeleton.
+    1.  Call the `write_test_code` tool with the current `test_scenario` object and `target_framework='simple'`. This will give you a function skeleton.
     2.  Receive the boilerplate code from the tool.
     3.  You MUST then replace the placeholder comments and TODO items with the actual C code required to execute the test.
     4.  This implementation should include:
         - Setting up any necessary input variables and structures.
         - Calling the function or method being tested.
-        - Writing appropriate Unity assertions (TEST_ASSERT_EQUAL, TEST_ASSERT_NOT_NULL, etc.).
+        - Writing simple assertions using if statements and printf for results.
 
     After processing all scenarios, combine all the generated test functions into a single C code block.
     This final block MUST include all necessary includes at the top:
-    - `#include "unity.h"`
+    - `#include <stdio.h>`
+    - `#include <stdlib.h>`
+    - `#include <string.h>`
     - `#include "source_to_test.h"`
-    - Function declarations and main function with UNITY_BEGIN() and UNITY_END()
+    - Function declarations and main function that calls all test functions
     
     Your final output should be ONLY the complete C code as a raw string.
     """,

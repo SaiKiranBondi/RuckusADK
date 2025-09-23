@@ -54,7 +54,7 @@ def run_python_tests():
         print(f"❌ Error running Python tests: {e}")
 
 def run_c_tests():
-    """Run Unity tests on the generated C test file."""
+    """Run simple C tests on the generated C test file."""
     print("\n" + "="*60)
     print("🔧 RUNNING C TESTS")
     print("="*60)
@@ -66,25 +66,9 @@ def run_c_tests():
             print("❌ gcc compiler not found. Please install gcc.")
             return
         
-        # Create a simple test runner
-        test_runner_content = '''#include "unity.h"
-#include "final_test_suite.c"
-
-int main(void) {
-    UNITY_BEGIN();
-    
-    // Test function calls will be added here
-    
-    return UNITY_END();
-}
-'''
-        
-        with open("test_runner.c", "w") as f:
-            f.write(test_runner_content)
-        
-        # Compile the test
+        # Compile the test directly (assuming it has a main function)
         compile_result = subprocess.run([
-            "gcc", "-o", "test_runner", "test_runner.c", "final_test_suite.c", "-I.", "-std=c99"
+            "gcc", "-o", "test_runner", "final_test_suite.c", "-std=c99"
         ], capture_output=True, text=True)
         
         if compile_result.returncode != 0:
@@ -110,8 +94,6 @@ int main(void) {
         # Clean up
         if os.path.exists("test_runner"):
             os.remove("test_runner")
-        if os.path.exists("test_runner.c"):
-            os.remove("test_runner.c")
             
     except FileNotFoundError:
         print("❌ gcc compiler not found. Please install gcc.")

@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 """
 Setup script for C testing dependencies
-Installs Unity framework and other required tools for C testing
+Installs gcc compiler for simple C testing (no Unity framework needed)
 """
 
 import os
 import sys
 import subprocess
-import urllib.request
-import zipfile
-import shutil
 from pathlib import Path
 
 def run_command(command, description):
@@ -54,126 +51,106 @@ def install_gcc_linux():
     """Install gcc on Linux"""
     print("🔧 Installing gcc on Linux...")
     
-    # Try apt (Ubuntu/Debian)
-    if run_command("sudo apt-get update && sudo apt-get install -y gcc", "Installing gcc via apt"):
-        return True
+    # Try different package managers
+    package_managers = [
+        ("apt-get update && apt-get install -y gcc", "Installing gcc via apt-get"),
+        ("yum install -y gcc", "Installing gcc via yum"),
+        ("dnf install -y gcc", "Installing gcc via dnf"),
+        ("pacman -S --noconfirm gcc", "Installing gcc via pacman"),
+        ("zypper install -y gcc", "Installing gcc via zypper")
+    ]
     
-    # Try yum (CentOS/RHEL)
-    if run_command("sudo yum install -y gcc", "Installing gcc via yum"):
-        return True
-    
-    # Try dnf (Fedora)
-    if run_command("sudo dnf install -y gcc", "Installing gcc via dnf"):
-        return True
+    for command, description in package_managers:
+        if run_command(command, description):
+            return True
     
     print("❌ Could not install gcc automatically. Please install gcc manually.")
+    print("   Run: sudo apt-get install gcc (Ubuntu/Debian)")
+    print("   Run: sudo yum install gcc (CentOS/RHEL)")
     return False
 
 def install_gcc_macos():
     """Install gcc on macOS"""
     print("🔧 Installing gcc on macOS...")
     
-    # Try homebrew
-    if run_command("brew install gcc", "Installing gcc via homebrew"):
+    # Try Homebrew
+    if run_command("brew install gcc", "Installing gcc via Homebrew"):
         return True
     
     print("❌ Could not install gcc automatically. Please install gcc manually.")
     print("   Run: brew install gcc")
     return False
 
-def download_unity_framework():
-    """Download and setup Unity framework"""
-    print("🔧 Setting up Unity framework...")
+def create_simple_test_template():
+    """Create a simple C test template for reference"""
+    print("🔧 Creating simple C test template...")
     
-    unity_dir = Path("unity")
-    if unity_dir.exists():
-        print("✅ Unity framework already exists")
-        return True
-    
-    try:
-        # Create unity directory
-        unity_dir.mkdir(exist_ok=True)
-        
-        # Download Unity framework
-        unity_url = "https://github.com/ThrowTheSwitch/Unity/archive/refs/heads/master.zip"
-        unity_zip = "unity.zip"
-        
-        print("📥 Downloading Unity framework...")
-        urllib.request.urlretrieve(unity_url, unity_zip)
-        
-        # Extract Unity
-        with zipfile.ZipFile(unity_zip, 'r') as zip_ref:
-            zip_ref.extractall(".")
-        
-        # Move Unity files to unity directory
-        extracted_dir = Path("Unity-master")
-        if extracted_dir.exists():
-            for item in extracted_dir.iterdir():
-                shutil.move(str(item), str(unity_dir / item.name))
-            shutil.rmtree(extracted_dir)
-        
-        # Clean up
-        os.remove(unity_zip)
-        
-        print("✅ Unity framework installed successfully")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Failed to download Unity framework: {e}")
-        return False
-
-def create_unity_header():
-    """Create a simple Unity header if download fails"""
-    print("🔧 Creating Unity header...")
-    
-    unity_dir = Path("unity")
-    unity_dir.mkdir(exist_ok=True)
-    
-    unity_h = unity_dir / "unity.h"
-    
-    # Create a minimal Unity header
-    unity_content = '''#ifndef UNITY_H
-#define UNITY_H
-
-#include <stdio.h>
+    template_content = '''#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// Minimal Unity testing framework
-#define TEST_ASSERT_EQUAL(expected, actual) \\
+// Simple test framework
+int tests_passed = 0;
+int tests_failed = 0;
+
+#define ASSERT_EQUAL(expected, actual, message) \\
     do { \\
-        if ((expected) != (actual)) { \\
-            printf("FAIL: Expected %d, got %d\\n", (expected), (actual)); \\
-            exit(1); \\
+        if ((expected) == (actual)) { \\
+            printf("✅ PASS: %s\\n", message); \\
+            tests_passed++; \\
+        } else { \\
+            printf("❌ FAIL: %s (expected %d, got %d)\\n", message, expected, actual); \\
+            tests_failed++; \\
         } \\
     } while(0)
 
-#define TEST_ASSERT_NOT_NULL(pointer) \\
+#define ASSERT_STRING_EQUAL(expected, actual, message) \\
     do { \\
-        if ((pointer) == NULL) { \\
-            printf("FAIL: Expected non-NULL pointer\\n"); \\
-            exit(1); \\
+        if (strcmp(expected, actual) == 0) { \\
+            printf("✅ PASS: %s\\n", message); \\
+            tests_passed++; \\
+        } else { \\
+            printf("❌ FAIL: %s (expected '%s', got '%s')\\n", message, expected, actual); \\
+            tests_failed++; \\
         } \\
     } while(0)
 
-#define TEST_ASSERT_TRUE(condition) \\
-    do { \\
-        if (!(condition)) { \\
-            printf("FAIL: Expected true, got false\\n"); \\
-            exit(1); \\
-        } \\
-    } while(0)
+// Include your source code here
+// #include "your_source_code.c"
 
-#define UNITY_BEGIN() printf("Running tests...\\n")
-#define UNITY_END() printf("All tests passed!\\n"); return 0
+void test_example(void) {
+    // Example test
+    int result = 2 + 3;
+    ASSERT_EQUAL(5, result, "2 + 3 should equal 5");
+}
 
-#endif
+int main(void) {
+    printf("🧪 Running C Tests...\\n");
+    printf("====================\\n\\n");
+    
+    test_example();
+    // Add more tests here
+    
+    printf("\\n====================\\n");
+    printf("📊 Test Results:\\n");
+    printf("✅ Passed: %d\\n", tests_passed);
+    printf("❌ Failed: %d\\n", tests_failed);
+    printf("📈 Total: %d\\n", tests_passed + tests_failed);
+    
+    if (tests_failed == 0) {
+        printf("🎉 All tests passed!\\n");
+        return 0;
+    } else {
+        printf("💥 Some tests failed!\\n");
+        return 1;
+    }
+}
 '''
     
-    with open(unity_h, 'w') as f:
-        f.write(unity_content)
+    with open("simple_test_template.c", 'w') as f:
+        f.write(template_content)
     
-    print("✅ Unity header created")
+    print("✅ Simple C test template created")
     return True
 
 def main():
@@ -181,36 +158,46 @@ def main():
     print("🚀 Setting up C testing dependencies...")
     print("=" * 50)
     
-    # Check if gcc is available
-    if not check_gcc():
-        print("🔧 Installing gcc...")
-        
-        if sys.platform == "win32":
-            success = install_gcc_windows()
-        elif sys.platform == "linux":
-            success = install_gcc_linux()
-        elif sys.platform == "darwin":
-            success = install_gcc_macos()
-        else:
-            print("❌ Unsupported platform. Please install gcc manually.")
-            success = False
-        
-        if not success:
-            print("❌ gcc installation failed. Please install gcc manually.")
-            return False
+    # Check if gcc is already available
+    if check_gcc():
+        print("✅ gcc is already available!")
+        create_simple_test_template()
+        print("=" * 50)
+        print("✅ C testing dependencies setup complete!")
+        print("\n📝 Next steps:")
+        print("1. Run: python main.py (with TEST_FILE_PATH = 'sample_code.c')")
+        print("2. Follow the C testing commands in TESTING_COMMANDS.txt")
+        print("3. Check simple_test_template.c for reference")
+        return True
     
-    # Setup Unity framework
-    if not download_unity_framework():
-        print("🔧 Creating minimal Unity framework...")
-        create_unity_header()
+    # Install gcc based on platform
+    print("🔧 Installing gcc compiler...")
     
-    print("=" * 50)
-    print("✅ C testing dependencies setup complete!")
-    print("\n📝 Next steps:")
-    print("1. Run: python main.py (with TEST_FILE_PATH = 'sample_code.c')")
-    print("2. Follow the C testing commands in TESTING_COMMANDS.txt")
+    if sys.platform.startswith('win'):
+        success = install_gcc_windows()
+    elif sys.platform.startswith('linux'):
+        success = install_gcc_linux()
+    elif sys.platform.startswith('darwin'):
+        success = install_gcc_macos()
+    else:
+        print(f"❌ Unsupported platform: {sys.platform}")
+        print("Please install gcc manually for your platform.")
+        return False
     
-    return True
+    if success:
+        print("=" * 50)
+        print("✅ C testing dependencies setup complete!")
+        print("\n📝 Next steps:")
+        print("1. Run: python main.py (with TEST_FILE_PATH = 'sample_code.c')")
+        print("2. Follow the C testing commands in TESTING_COMMANDS.txt")
+        print("3. Check simple_test_template.c for reference")
+        return True
+    else:
+        print("=" * 50)
+        print("❌ C testing dependencies setup failed!")
+        print("Please install gcc manually and try again.")
+        return False
 
 if __name__ == "__main__":
-    main()
+    success = main()
+    sys.exit(0 if success else 1)

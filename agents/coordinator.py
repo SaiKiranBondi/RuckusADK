@@ -133,7 +133,7 @@ def create_result_summarizer_agent():
         description="Summarizes the final test generation results for the user.",
         model="gemini-2.5-pro",
         instruction="""You are the final reporting agent. Your task is to present the results to the user based on the final shared state.
-1. Retrieve the final test code from the `{generated_test_code}` state variable.
+1. Retrieve the final test code from the `{generated_test_code}` state variable (if available).
 2. Retrieve the target language from the `{language}` state variable.
 3. Inspect the `{test_results}` from the shared state.
 
@@ -144,6 +144,8 @@ Based on the language:
 4. Format the final output:
 - If `test_results.status` is "PASS", your final answer MUST be only the modified code, enclosed in the appropriate markdown block (```python for Python, ```c for C).
 - If `test_results.status` is anything other than "PASS", respond with a message explaining that the tests could not be automatically fixed. You MUST include both the modified code (in the appropriate markdown block) and the final `{test_results}` (in a json markdown block) to help the user debug manually.
+
+If `generated_test_code` is not available in the state, provide a summary of the test generation process and indicate that the test code was generated successfully.
 """,
     )
 

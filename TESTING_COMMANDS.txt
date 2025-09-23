@@ -34,15 +34,14 @@ pytest -v --cov=final_test_suite.py
 ### Step 0: Setup C Dependencies (AUTOMATIC)
 ```bash
 # Run the Python setup script (works on all platforms)
-python setup_c_dependencies.py
+python setup_c.py
 
 # If automatic setup fails, manual setup:
 # 1. Install gcc compiler:
 #    - Windows: Download MinGW-w64 or use chocolatey: choco install mingw
 #    - Linux: sudo apt-get install gcc (Ubuntu/Debian) or sudo yum install gcc (CentOS)
 #    - macOS: brew install gcc
-# 2. Download Unity framework: https://github.com/ThrowTheSwitch/Unity
-# 3. Extract to 'unity' folder in project directory
+# 2. No Unity framework needed! Simple C tests only.
 ```
 
 ### Step 1: Generate C Tests
@@ -65,14 +64,8 @@ echo "✅ C compilation test successful"
 
 ### Step 3: Compile and Run C Tests
 ```bash
-# Compile the source code
-gcc -c sample_code.c -o sample_code.o
-
-# Compile the test suite with Unity (include Unity headers)
-gcc -c final_test_suite.c -I./unity -o final_test_suite.o
-
-# Link everything together
-gcc sample_code.o final_test_suite.o -o test_runner
+# Simple compilation (no Unity framework needed!)
+gcc -o test_runner final_test_suite.c -std=c99
 
 # Run the C tests
 ./test_runner
@@ -91,9 +84,21 @@ gcc -o test_program sample_code.c final_test_suite.c
 ```
 
 ### Step 5: Expected C Output
-- Unity test results showing PASS/FAIL
-- Test execution summary
-- Any compilation errors or warnings
+```
+🧪 Running C Tests...
+====================
+
+✅ PASS: add(5, 7) should return 12
+✅ PASS: multiply(3, 4) should return 12
+❌ FAIL: greet('World') should return 'Hello, World' (expected 'Hello, World', got 'Hello, World')
+
+====================
+📊 Test Results:
+✅ Passed: 2
+❌ Failed: 1
+📈 Total: 3
+💥 Some tests failed!
+```
 
 ---
 
@@ -105,13 +110,11 @@ gcc -o test_program sample_code.c final_test_suite.c
 3. pytest -v final_test_suite.py
 
 ### For C:
-1. **Setup**: python setup_c_dependencies.py (one-time setup)
+1. **Setup**: python setup_c.py (one-time setup)
 2. Change TEST_FILE_PATH = "sample_code.c" in main.py
 3. python main.py
-4. gcc -c sample_code.c -o sample_code.o
-5. gcc -c final_test_suite.c -I./unity -o final_test_suite.o
-6. gcc sample_code.o final_test_suite.o -o test_runner
-7. ./test_runner
+4. gcc -o test_runner final_test_suite.c -std=c99
+5. ./test_runner
 
 ---
 
