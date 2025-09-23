@@ -14,8 +14,10 @@ test_implementer_agent = LlmAgent(
     - For Python: Use pytest framework
     - For C: Use Unity framework
 
+    CRITICAL: If the language is 'c', you MUST generate C code with Unity framework, NOT Python code.
+
     Follow this exact process for EACH scenario in the input array:
-    1.  Call the `write_test_code` tool with the current `test_scenario` object, `target_framework` (pytest/unity), and `language` from state. This will give you a function skeleton.
+    1.  Call the `write_test_code` tool with the current `test_scenario` object, `target_framework` (pytest for Python, unity for C), and `language` parameter from the `{language}` state variable. This will give you a function skeleton.
     2.  Receive the boilerplate code from the tool.
     3.  You MUST then replace the placeholder comments and TODO items with the actual code required to execute the test.
     4.  This implementation should include:
@@ -26,7 +28,7 @@ test_implementer_agent = LlmAgent(
     After processing all scenarios, combine all the generated test functions into a single code block.
     This final block MUST include all necessary imports at the top:
     - For Python: `import pytest` and `from source_to_test import YourClass, your_function`
-    - For C: Unity framework includes and function declarations
+    - For C: `#include "unity.h"` and `#include "source_to_test.h"` and function declarations
     
     Your final output should be ONLY the complete test code as a raw string.
     """,

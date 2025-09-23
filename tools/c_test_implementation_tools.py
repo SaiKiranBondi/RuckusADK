@@ -32,14 +32,11 @@ def write_c_test_code(test_scenario: Dict[str, Any]) -> str:
     # Create a detailed comment from the scenario
     comment = f"/*\n * Tests: {description}\n * Expected Outcome: {expected_outcome}\n */"
     
-    # Unity test function template
+    # Unity test function template with actual implementation
     code_template = f'''{comment}
 void {function_name}(void) {{
-    // TODO: Implement the test logic and assertion here.
-    // Use Unity assertions like:
-    // TEST_ASSERT_EQUAL(expected, actual);
-    // TEST_ASSERT_NOT_NULL(pointer);
-    // TEST_ASSERT_TRUE(condition);
+    // Test implementation will be added by the LLM
+    // This is a placeholder for Unity test function
 }}
 '''
     return code_template.strip()
