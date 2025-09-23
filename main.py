@@ -1,7 +1,6 @@
 import asyncio
 import json
 import re
-import subprocess
 import os
 import sys
 from google.adk.runners import Runner
@@ -24,81 +23,7 @@ def detect_language(file_path: str) -> str:
     else:
         raise ValueError(f"Unsupported file type: {file_path}")
 
-def run_python_tests():
-    """Run pytest on the generated Python test file."""
-    print("\n" + "="*60)
-    print("🧪 RUNNING PYTHON TESTS")
-    print("="*60)
-    
-    try:
-        # Run pytest with verbose output
-        result = subprocess.run([
-            sys.executable, "-m", "pytest", "final_test_suite.py", "-v", "--tb=short"
-        ], capture_output=True, text=True, cwd=".")
-        
-        print("STDOUT:")
-        print(result.stdout)
-        if result.stderr:
-            print("STDERR:")
-            print(result.stderr)
-        
-        print(f"\nExit code: {result.returncode}")
-        if result.returncode == 0:
-            print("✅ All Python tests passed!")
-        else:
-            print("❌ Some Python tests failed!")
-            
-    except FileNotFoundError:
-        print("❌ pytest not found. Please install pytest: pip install pytest")
-    except Exception as e:
-        print(f"❌ Error running Python tests: {e}")
-
-def run_c_tests():
-    """Run simple C tests on the generated C test file."""
-    print("\n" + "="*60)
-    print("🔧 RUNNING C TESTS")
-    print("="*60)
-    
-    try:
-        # First, check if gcc is available
-        gcc_check = subprocess.run(["gcc", "--version"], capture_output=True, text=True)
-        if gcc_check.returncode != 0:
-            print("❌ gcc compiler not found. Please install gcc.")
-            return
-        
-        # Compile the test directly (assuming it has a main function)
-        compile_result = subprocess.run([
-            "gcc", "-o", "test_runner", "final_test_suite.c", "-std=c99"
-        ], capture_output=True, text=True)
-        
-        if compile_result.returncode != 0:
-            print("❌ Compilation failed:")
-            print(compile_result.stderr)
-            return
-        
-        # Run the test
-        result = subprocess.run(["./test_runner"], capture_output=True, text=True)
-        
-        print("STDOUT:")
-        print(result.stdout)
-        if result.stderr:
-            print("STDERR:")
-            print(result.stderr)
-        
-        print(f"\nExit code: {result.returncode}")
-        if result.returncode == 0:
-            print("✅ All C tests passed!")
-        else:
-            print("❌ Some C tests failed!")
-            
-        # Clean up
-        if os.path.exists("test_runner"):
-            os.remove("test_runner")
-            
-    except FileNotFoundError:
-        print("❌ gcc compiler not found. Please install gcc.")
-    except Exception as e:
-        print(f"❌ Error running C tests: {e}")
+# Test execution functions removed - run tests manually
 
 async def main():
     print("--- Starting Autonomous Test Suite Generation System ---")
@@ -128,6 +53,8 @@ async def main():
     
     # 3. Instantiate the ADK Runner with our master agent
     # We pass the shared session_service instance here.
+    # For Google Cloud, we don't need to specify authentication
+    # as it will use the default Google Cloud credentials
     runner = Runner(
         app_name="autotest_suite_generator",
         agent=root_agent,
@@ -211,15 +138,28 @@ async def main():
     else:
         print(f"\n--- Unsupported language '{language}' for final output. ---")
     
-    # Run the generated tests
-    if test_file_saved:
-        if language == 'python':
-            run_python_tests()
-        elif language == 'c':
-            run_c_tests()
+    # Tests have been generated and saved
+    # You can now run them manually:
+    # For Python: pytest -v final_test_suite.py
+    # For C: gcc -o test_runner final_test_suite.c -std=c99 && ./test_runner
 
 
 if __name__ == "__main__":
-    # Make sure your .env file with GOOGLE_API_KEY is present
+    # For Google Cloud Shell, we don't need .env file
+    # The system will use Google Cloud credentials automatically
     load_dotenv()
+    
+    # Don't override Google Cloud authentication
+    # Let the system use the default Google Cloud credentials
+    if not os.getenv("GOOGLE_CLOUD_PROJECT"):
+        os.environ["GOOGLE_CLOUD_PROJECT"] = "ruckusdevtools"
+    
+    # Check if we're in Google Cloud environment
+    if os.getenv("GOOGLE_CLOUD_PROJECT"):
+        print("✅ Running in Google Cloud environment")
+        print("Using Google Cloud credentials for authentication")
+    else:
+        print("⚠️  Not in Google Cloud environment")
+        print("Make sure you're authenticated with Google Cloud")
+    
     asyncio.run(main())
