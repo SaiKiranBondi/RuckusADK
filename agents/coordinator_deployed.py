@@ -19,7 +19,7 @@ from .prompts import (
     get_code_analyzer_prompt_deployed,
     get_test_case_designer_prompt_deployed
 )
-from tools.workflow_tools import exit_loop
+from RuckusADK.tools.workflow_tools import exit_loop
 
 # --- State Initialization for Deployed Agent ---
 
@@ -192,4 +192,4 @@ def create_root_agent_deployed(language: str = "python"):
     )
 
 # Default root agent for deployment
-root_agent_deployed = create_root_agent_deployed("python")
+root_agent = create_root_agent_deployed("python")

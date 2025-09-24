@@ -1,7 +1,0 @@
-google-adk
-pydantic
-pytest
-pycparser>=2.21
-google-cloud-storage
-flask
-gunicorn

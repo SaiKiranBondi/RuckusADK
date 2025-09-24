@@ -83,7 +83,7 @@ source venv/bin/activate
 
 # Install dependencies
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install --upgrade -r requirements.txt
 ```
 
 ### **2.2 Deploy Agent to Agent Engine**

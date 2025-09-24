@@ -1,5 +1,5 @@
 from google.adk.agents import LlmAgent
-from tools.code_analysis_tools import analyze_code_structure
+from RuckusADK.tools.code_analysis_tools import analyze_code_structure
 from .prompts import get_code_analyzer_prompt_original
 
 def create_code_analyzer_agent():

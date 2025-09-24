@@ -1,5 +1,5 @@
 from google.adk.agents import LlmAgent
-from tools.test_execution_tools import execute_tests_sandboxed, parse_test_results
+from RuckusADK.tools.test_execution_tools import execute_tests_sandboxed, parse_test_results
 from .prompts import get_test_runner_prompt
 
 # Create the agent with dynamic instruction based on language
