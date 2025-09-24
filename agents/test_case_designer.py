@@ -1,5 +1,5 @@
 from google.adk.agents import LlmAgent
-from RuckusADK.tools.test_design_tools import generate_test_scenarios
+from tools.test_design_tools import generate_test_scenarios
 from .prompts import get_test_case_designer_prompt_original
 
 def create_test_case_designer_agent():

@@ -12,7 +12,7 @@ from .test_implementer import create_test_implementer_agent
 from .test_runner import create_test_runner_agent
 from .debugger_and_refiner import create_debugger_and_refiner_agent
 from .prompts import get_result_summarizer_prompt_original
-from RuckusADK.tools.workflow_tools import exit_loop
+from tools.workflow_tools import exit_loop
 
 # --- State Initialization ---
 

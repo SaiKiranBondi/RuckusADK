@@ -19,7 +19,7 @@ from .prompts import (
     get_code_analyzer_prompt_deployed,
     get_test_case_designer_prompt_deployed
 )
-from RuckusADK.tools.workflow_tools import exit_loop
+from tools.workflow_tools import exit_loop
 
 # --- State Initialization for Deployed Agent ---
 
