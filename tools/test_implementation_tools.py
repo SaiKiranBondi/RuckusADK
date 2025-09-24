@@ -112,17 +112,37 @@ def generate_complete_c_test_file(test_scenarios: list) -> str:
     Returns:
         A complete C test file as a string.
     """
-    # Start with Unity includes and setup
-    test_file = '''#include "unity.h"
+    # Start with simple C includes
+    test_file = '''#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "source_to_test.h"
 
-void setUp(void) {
-    // Set up code that runs before each test
-}
+// Simple test framework
+int tests_passed = 0;
+int tests_failed = 0;
 
-void tearDown(void) {
-    // Clean up code that runs after each test
-}
+#define ASSERT_EQUAL(expected, actual, message) \\
+    do { \\
+        if ((expected) == (actual)) { \\
+            printf("✅ PASS: %s\\n", message); \\
+            tests_passed++; \\
+        } else { \\
+            printf("❌ FAIL: %s (expected %d, got %d)\\n", message, expected, actual); \\
+            tests_failed++; \\
+        } \\
+    } while(0)
+
+#define ASSERT_STRING_EQUAL(expected, actual, message) \\
+    do { \\
+        if (strcmp(expected, actual) == 0) { \\
+            printf("✅ PASS: %s\\n", message); \\
+            tests_passed++; \\
+        } else { \\
+            printf("❌ FAIL: %s (expected '%s', got '%s')\\n", message, expected, actual); \\
+            tests_failed++; \\
+        } \\
+    } while(0)
 
 '''
     
@@ -138,18 +158,31 @@ void tearDown(void) {
  */
 void {function_name}(void) {{
     // Test implementation will be added by the LLM
-    // This is a placeholder for Unity test function
+    // This is a placeholder for simple C test function
 }}
 
 '''
     
     # Add main function
     test_file += '''int main(void) {
-    UNITY_BEGIN();
+    printf("🧪 Running C Tests...\\n");
+    printf("====================\\n\\n");
     
     // Test function calls will be added here
     
-    return UNITY_END();
+    printf("\\n====================\\n");
+    printf("📊 Test Results:\\n");
+    printf("✅ Passed: %d\\n", tests_passed);
+    printf("❌ Failed: %d\\n", tests_failed);
+    printf("📈 Total: %d\\n", tests_passed + tests_failed);
+    
+    if (tests_failed == 0) {
+        printf("🎉 All tests passed!\\n");
+        return 0;
+    } else {
+        printf("💥 Some tests failed!\\n");
+        return 1;
+    }
 }
 '''
     
@@ -157,21 +190,41 @@ void {function_name}(void) {{
 
 def generate_c_test_boilerplate() -> str:
     """
-    Generates the Unity test framework boilerplate for C tests.
+    Generates the simple C test framework boilerplate for C tests.
     
     Returns:
-        A string containing the Unity test framework setup code.
+        A string containing the simple C test framework setup code.
     """
-    return '''#include "unity.h"
+    return '''#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "source_to_test.h"
 
-void setUp(void) {
-    // Set up code that runs before each test
-}
+// Simple test framework
+int tests_passed = 0;
+int tests_failed = 0;
 
-void tearDown(void) {
-    // Clean up code that runs after each test
-}
+#define ASSERT_EQUAL(expected, actual, message) \\
+    do { \\
+        if ((expected) == (actual)) { \\
+            printf("✅ PASS: %s\\n", message); \\
+            tests_passed++; \\
+        } else { \\
+            printf("❌ FAIL: %s (expected %d, got %d)\\n", message, expected, actual); \\
+            tests_failed++; \\
+        } \\
+    } while(0)
+
+#define ASSERT_STRING_EQUAL(expected, actual, message) \\
+    do { \\
+        if (strcmp(expected, actual) == 0) { \\
+            printf("✅ PASS: %s\\n", message); \\
+            tests_passed++; \\
+        } else { \\
+            printf("❌ FAIL: %s (expected '%s', got '%s')\\n", message, expected, actual); \\
+            tests_failed++; \\
+        } \\
+    } while(0)
 
 // Test functions will be inserted here
 '''

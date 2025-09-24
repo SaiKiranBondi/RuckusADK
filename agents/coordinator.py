@@ -141,8 +141,10 @@ Based on the language:
 - For C: Generate a complete C test file with simple assertions
 
 3. Format the final output:
-- Generate the complete test code based on the test scenarios and analysis
+- Generate comprehensive test code based on the test scenarios and analysis
 - Enclose the code in the appropriate markdown block (```python for Python, ```c for C)
+- CRITICAL: For C tests, use #include "sample_code.c" to include the source code, DO NOT duplicate the source code in the test file
+- CRITICAL: For Python tests, use from sample_code import ... to import the source code, DO NOT duplicate the source code in the test file
 - Include all necessary includes, imports, and main function
 - Make sure the code is ready to compile and run
 

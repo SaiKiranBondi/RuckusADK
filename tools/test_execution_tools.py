@@ -260,11 +260,11 @@ class CTestResult(BaseModel):
 
 def execute_c_tests_sandboxed(source_code: str, test_code: str) -> Dict[str, Any]:
     """
-    Executes C tests using Unity framework in a temporary environment.
+    Executes C tests using simple C assertions in a temporary environment.
     
     Args:
         source_code: The original C source code as a string.
-        test_code: The generated Unity test code as a string.
+        test_code: The generated simple C test code as a string.
         
     Returns:
         A dictionary containing the raw stdout, stderr, and exit code from the execution.
@@ -294,8 +294,10 @@ def execute_c_tests_sandboxed(source_code: str, test_code: str) -> Dict[str, Any
             f.write("\n// Function declarations will be added here\n")
             f.write("\n#endif\n")
         
-        # Create main test runner
-        main_content = '''#include "unity.h"
+        # Create main test runner (simple C, no Unity)
+        main_content = '''#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "source_to_test.h"
 
 // Include test functions
@@ -305,11 +307,14 @@ def execute_c_tests_sandboxed(source_code: str, test_code: str) -> Dict[str, Any
             f.write(test_code)
             f.write('''
 int main(void) {
-    UNITY_BEGIN();
+    printf("🧪 Running C Tests...\\n");
+    printf("====================\\n\\n");
     
     // Test function calls will be added here
     
-    return UNITY_END();
+    printf("\\n====================\\n");
+    printf("📊 Test Results: Complete\\n");
+    return 0;
 }
 ''')
         
