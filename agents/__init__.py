@@ -1,2 +1,2 @@
-from .coordinator import root_agent
-from .coordinator_deployed import root_agent_deployed
+# Agents package initialization
+# Import only when needed to avoid circular imports

@@ -21,5 +21,5 @@ EXPOSE 8080
 ENV PORT=8080
 ENV GOOGLE_CLOUD_PROJECT=ruckusdevtools
 
-# Run the web interface
-CMD ["python", "web_interface.py"]
+# Run the ADK-based web interface
+CMD ["python", "web_interface_adk.py"]
