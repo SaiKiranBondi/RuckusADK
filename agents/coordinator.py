@@ -11,6 +11,7 @@ from .test_case_designer import create_test_case_designer_agent
 from .test_implementer import create_test_implementer_agent
 from .test_runner import create_test_runner_agent
 from .debugger_and_refiner import create_debugger_and_refiner_agent
+from .prompts import get_result_summarizer_prompt_original
 from tools.workflow_tools import exit_loop
 
 # --- State Initialization ---
@@ -132,24 +133,7 @@ def create_result_summarizer_agent():
         name="ResultSummarizer",
         description="Summarizes the final test generation results for the user.",
         model="gemini-2.5-pro",
-        instruction="""You are the final reporting agent. Your task is to present the results to the user based on the final shared state.
-1. Retrieve the target language from the `{language}` state variable.
-2. Inspect the `{test_results}` from the shared state.
-
-Based on the language:
-- For Python: Generate a complete Python test file with pytest
-- For C: Generate a complete C test file with simple assertions
-
-3. Format the final output:
-- Generate comprehensive test code based on the test scenarios and analysis
-- Enclose the code in the appropriate markdown block (```python for Python, ```c for C)
-- CRITICAL: For C tests, use #include "sample_code.c" to include the source code, DO NOT duplicate the source code in the test file
-- CRITICAL: For Python tests, use from sample_code import ... to import the source code, DO NOT duplicate the source code in the test file
-- Include all necessary includes, imports, and main function
-- Make sure the code is ready to compile and run
-
-The test code should be comprehensive and cover all the test scenarios that were designed.
-""",
+        instruction=get_result_summarizer_prompt_original(),
     )
 
 # Default agent (will be updated dynamically)
