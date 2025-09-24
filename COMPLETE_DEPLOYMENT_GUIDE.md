@@ -89,7 +89,7 @@ pip install -r requirements.txt
 ### **2.2 Deploy Agent to Agent Engine**
 ```bash
 # Deploy the agent
-adk deploy agent_engine testmozart \
+adk deploy agent_engine RuckusADK \
   --display_name "TestMozart AI Test Generator" \
   --staging_bucket gs://saikiranruckusdevtools-bucket
 ```
