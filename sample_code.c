@@ -1,30 +1,34 @@
 #include <stdio.h>
-#include <stdlib.h>
 
-// A simple calculator structure
-typedef struct {
-    int result;
-} Calculator;
-
-// Calculator methods
-int add(Calculator* calc, int a, int b) {
-    calc->result = a + b;
-    return calc->result;
+// Simple math function
+int add(int a, int b) {
+    return a + b;
 }
 
-int subtract(Calculator* calc, int a, int b) {
-    calc->result = a - b;
-    return calc->result;
+// Simple string function
+int get_length(const char* str) {
+    if (str == NULL) return -1;
+    int len = 0;
+    while (str[len] != '\0') {
+        len++;
+    }
+    return len;
 }
 
-// Standalone function
-char* greet(const char* name) {
-    static char greeting[100];
-    snprintf(greeting, sizeof(greeting), "Hello, %s", name);
-    return greeting;
+// Simple validation function
+int is_positive(int number) {
+    return number > 0;
 }
 
-// Math utility function
-int multiply(int a, int b) {
-    return a * b;
+// Main function for demonstration
+int main() {
+    printf("Simple C Functions Demo\n");
+    printf("======================\n");
+    
+    printf("add(5, 3) = %d\n", add(5, 3));
+    printf("get_length(\"hello\") = %d\n", get_length("hello"));
+    printf("is_positive(5) = %d\n", is_positive(5));
+    printf("is_positive(-3) = %d\n", is_positive(-3));
+    
+    return 0;
 }

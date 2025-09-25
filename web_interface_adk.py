@@ -14,19 +14,8 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 # Import the regular coordinator (same as main.py)
-try:
-    from agents.coordinator import create_root_agent
-    print("Successfully imported create_root_agent")
-except ImportError as e:
-    print(f"Import error: {e}")
-    # Try alternative import
-    try:
-        from agents.coordinator_deployed import create_root_agent_deployed
-        create_root_agent = create_root_agent_deployed
-        print("Successfully imported deployed coordinator as fallback")
-    except Exception as e2:
-        print(f"Alternative import failed: {e2}")
-        raise e2
+from agents.coordinator import create_root_agent
+print("Successfully imported create_root_agent")
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -51,9 +40,27 @@ def upload_file_to_gcs(file_content: str, filename: str) -> str:
         project_id = os.getenv('GOOGLE_CLOUD_PROJECT', 'ruckusdevtools')
         print(f"Using project: {project_id}")
         
-        # Initialize the client
-        client = storage.Client(project=project_id)
-        print("GCS client initialized successfully")
+        # Initialize the client with proper authentication
+        try:
+            # Try to use default credentials first
+            client = storage.Client(project=project_id)
+            print("GCS client initialized successfully with default credentials")
+        except Exception as auth_error:
+            print(f"Default credentials failed: {auth_error}")
+            # Try to use service account key if available
+            try:
+                from google.oauth2 import service_account
+                # Look for service account key file
+                key_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
+                if key_path and os.path.exists(key_path):
+                    credentials = service_account.Credentials.from_service_account_file(key_path)
+                    client = storage.Client(project=project_id, credentials=credentials)
+                    print("GCS client initialized with service account key")
+                else:
+                    raise Exception("No service account key found")
+            except Exception as key_error:
+                print(f"Service account key failed: {key_error}")
+                raise Exception("GCS authentication failed")
         
         # Get the bucket
         bucket = client.bucket(BUCKET_NAME)
@@ -163,6 +170,9 @@ async def call_agent_async(file_url: str, filename: str, language: str, file_con
             "language": language
         })
         print(f"Agent request prepared: {agent_request[:100]}...")
+        print(f"Source code length: {len(file_content)} characters")
+        print(f"Language: {language}")
+        print(f"Source code preview: {file_content[:200]}...")
         
         user_message = types.Content(
             role="user",
@@ -226,6 +236,20 @@ async def call_agent_async(file_url: str, filename: str, language: str, file_con
                     # Collect all responses
                     if full_content:
                         all_responses.append(full_content)
+                        
+                        # Special handling for TestImplementer to see what it's receiving
+                        if event.author == "TestImplementer":
+                            print(f"  → TestImplementer received content: {len(full_content)} characters")
+                            if full_content:
+                                print(f"  → TestImplementer content preview: {full_content[:200]}...")
+                            else:
+                                print(f"  → TestImplementer received empty content - this might be the issue!")
+                            
+                            # Check if TestImplementer is calling tools
+                            if hasattr(event, 'tool_calls') and event.tool_calls:
+                                print(f"  → TestImplementer tool calls: {[tc.name for tc in event.tool_calls]}")
+                            else:
+                                print(f"  → TestImplementer made no tool calls")
                 
                 # Check for final response - but don't break immediately
                 if event.is_final_response():
@@ -243,6 +267,10 @@ async def call_agent_async(file_url: str, filename: str, language: str, file_con
                     elif event.author != "TestImplementer":
                         print(f"Agent {event.author} completed - continuing workflow")
                         continue
+                    # If we get here and it's a final response, break to avoid infinite loop
+                    else:
+                        print("Final response received - breaking")
+                        break
         
         except Exception as e:
             error_log = f"Error during agent execution: {str(e)}"
@@ -299,7 +327,7 @@ def index():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>TestMozart - AI Test Generator</title>
+        <title>BDC2 - AI Test Code generator</title>
         <style>
             body {
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -443,7 +471,7 @@ def index():
     </head>
     <body>
         <div class="container">
-            <h1>🧪 TestMozart - AI Test Generator</h1>
+            <h1>BDC2 - AI Test Generator</h1>
             <p style="text-align: center; color: #666;">
                 Upload your Python or C code file and let AI generate comprehensive test suites for you!
             </p>
@@ -627,12 +655,32 @@ def upload_file():
         
         # Save test code to GCS and get download URL
         print("Saving test code to GCS...")
-        gcs_url = upload_file_to_gcs(test_code, f"test_{filename}")
+        # Extract timestamp from the original file URL to maintain consistency
+        if file_url.startswith('gs://'):
+            # Extract timestamp from original file: uploads/20250925_065851_sample_code.c
+            blob_path = file_url.split('/', 3)[3]  # Get everything after gs://bucket/
+            timestamp_part = blob_path.split('_')[0] + '_' + blob_path.split('_')[1]  # Get timestamp part
+            test_filename = f"{timestamp_part}_test_{filename}"
+        else:
+            test_filename = f"test_{filename}"
         
-        # Create download filename for the endpoint
-        import datetime
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        download_filename = f"{timestamp}_test_{filename}"
+        gcs_url = upload_file_to_gcs(test_code, test_filename)
+        
+        # Extract the filename from the GCS URL to ensure consistency
+        if gcs_url.startswith('gs://'):
+            # Extract the blob name from gs://bucket/path
+            blob_path = gcs_url.split('/', 3)[3]  # Get everything after gs://bucket/
+            # Remove the "uploads/" prefix if it exists to avoid double path
+            if blob_path.startswith('uploads/'):
+                download_filename = blob_path[8:]  # Remove "uploads/" prefix
+            else:
+                download_filename = blob_path
+        else:
+            # Fallback to creating a new timestamp
+            import datetime
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            download_filename = f"{timestamp}_test_{filename}"
+        
         download_url = f"/download/{download_filename}"
         
         print(f"Test code saved to: {gcs_url}")

@@ -1,6 +1,6 @@
 from google.adk.agents import LlmAgent
 from tools.test_design_tools import generate_test_scenarios
-from .prompts import get_test_case_designer_prompt_original
+from .prompts import get_test_case_designer_prompt
 
 def create_test_case_designer_agent():
     """Create a fresh test case designer agent instance."""
@@ -8,7 +8,7 @@ def create_test_case_designer_agent():
         name="TestCaseDesigner",
         description="Generates comprehensive abstract test scenarios in natural language based on a code analysis report.",
         model="gemini-2.5-pro",
-        instruction=get_test_case_designer_prompt_original(),
+        instruction=get_test_case_designer_prompt(),
         tools=[
             generate_test_scenarios
         ]

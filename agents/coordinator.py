@@ -11,7 +11,7 @@ from .test_case_designer import create_test_case_designer_agent
 from .test_implementer import create_test_implementer_agent
 from .test_runner import create_test_runner_agent
 from .debugger_and_refiner import create_debugger_and_refiner_agent
-from .prompts import get_result_summarizer_prompt_original
+from .prompts import get_result_summarizer_prompt
 from tools.workflow_tools import exit_loop
 
 # --- State Initialization ---
@@ -47,6 +47,49 @@ def save_analysis_to_state(tool: BaseTool, args: dict, tool_context: ToolContext
         # Return a simple content object. This signals to the ADK that the
         # agent's turn is complete, preventing an unnecessary second LLM call.
         return types.Content(parts=[types.Part(text="Static analysis complete.")])
+
+def save_test_scenarios_to_state(tool: BaseTool, args: dict, tool_context: ToolContext, tool_response: dict):
+    """
+    This callback intercepts the result from the `generate_test_scenarios` tool,
+    saves it directly to the session state, and ends the agent's turn.
+    """
+    if tool.name == 'generate_test_scenarios':
+        # Save the tool's direct output to the state.
+        tool_context.state['test_scenarios'] = tool_response
+        print(f"DEBUG: Saved test scenarios to state: {len(tool_response)} scenarios")
+        # Return a simple content object. This signals to the ADK that the
+        # agent's turn is complete, preventing an unnecessary second LLM call.
+        return types.Content(parts=[types.Part(text="Test scenarios generated successfully.")])
+
+def debug_test_implementer_state(callback_context: CallbackContext):
+    """
+    Debug callback to see what's in the state when TestImplementer runs.
+    """
+    try:
+        # Check if state has keys method
+        if hasattr(callback_context.state, 'keys'):
+            state_keys = list(callback_context.state.keys())
+            print(f"DEBUG: TestImplementer state keys: {state_keys}")
+        else:
+            print(f"DEBUG: TestImplementer state type: {type(callback_context.state)}")
+            print(f"DEBUG: TestImplementer state: {callback_context.state}")
+        
+        # Try to get test scenarios
+        if hasattr(callback_context.state, 'get'):
+            test_scenarios = callback_context.state.get('test_scenarios', [])
+        else:
+            # Try direct attribute access
+            test_scenarios = getattr(callback_context.state, 'test_scenarios', [])
+        
+        print(f"DEBUG: Test scenarios in state: {len(test_scenarios)} scenarios")
+        if test_scenarios:
+            print(f"DEBUG: First scenario: {test_scenarios[0] if test_scenarios else 'None'}")
+    except Exception as e:
+        print(f"DEBUG: Error in debug callback: {e}")
+        print(f"DEBUG: State object: {callback_context.state}")
+    
+    return None
+
 
 
 # --- Configure Individual Agents for the Workflow ---
@@ -99,6 +142,10 @@ def create_workflow_agents(language: str = "python"):
     
     # Set up callbacks and output keys
     code_analyzer.after_tool_callback = save_analysis_to_state
+    test_case_designer.after_tool_callback = save_test_scenarios_to_state
+    
+    # Add debug callback for TestImplementer
+    test_implementer.before_agent_callback = debug_test_implementer_state
     
     # The first part of the workflow is a deterministic sequence.
     generation_pipeline = SequentialAgent(
@@ -133,7 +180,7 @@ def create_result_summarizer_agent():
         name="ResultSummarizer",
         description="Summarizes the final test generation results for the user.",
         model="gemini-2.5-pro",
-        instruction=get_result_summarizer_prompt_original(),
+        instruction=get_result_summarizer_prompt(),
     )
 
 # Default agent (will be updated dynamically)

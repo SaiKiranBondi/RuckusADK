@@ -1,6 +1,6 @@
 from google.adk.agents import LlmAgent
 from tools.code_analysis_tools import analyze_code_structure
-from .prompts import get_code_analyzer_prompt_original
+from .prompts import get_code_analyzer_prompt
 
 def create_code_analyzer_agent():
     """Create a fresh code analyzer agent instance."""
@@ -8,7 +8,7 @@ def create_code_analyzer_agent():
         name="CodeAnalyzer",
         description="Performs deep, accurate static analysis of source code by parsing it into a structured format.",
         model="gemini-2.5-flash", # Or any capable model
-        instruction=get_code_analyzer_prompt_original(),
+        instruction=get_code_analyzer_prompt(),
         tools=[
             analyze_code_structure
         ]

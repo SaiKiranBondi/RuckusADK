@@ -258,6 +258,107 @@ class CTestResult(BaseModel):
     summary: str = Field(..., description="The summary line from the test runner.")
     failures: List[CTestFailureDetail] = Field(default_factory=list, description="A list of detailed failure information.")
 
+def execute_c_tests_simple(source_code: str, test_code: str) -> Dict[str, Any]:
+    """
+    Simple C test execution using basic gcc commands.
+    
+    Args:
+        source_code: The original C source code as a string.
+        test_code: The generated simple C test code as a string.
+        
+    Returns:
+        A dictionary containing the raw stdout, stderr, and exit code from the execution.
+    """
+    
+    # Create a temporary directory to work in
+    with tempfile.TemporaryDirectory() as temp_dir:
+        
+        # --- 1. Create files ---
+        source_path = os.path.join(temp_dir, "source.c")
+        test_path = os.path.join(temp_dir, "test.c")
+        
+        # Write source code (remove main function if it exists)
+        source_lines = source_code.split('\n')
+        source_without_main = []
+        in_main = False
+        brace_count = 0
+        
+        for line in source_lines:
+            if 'int main(' in line or 'void main(' in line:
+                in_main = True
+                brace_count = 0
+                continue
+            if in_main:
+                brace_count += line.count('{')
+                brace_count -= line.count('}')
+                if brace_count <= 0 and '}' in line:
+                    in_main = False
+                continue
+            source_without_main.append(line)
+        
+        with open(source_path, "w") as f:
+            f.write('\n'.join(source_without_main))
+            
+        # Write test code (should not have main function)
+        with open(test_path, "w") as f:
+            f.write(test_code)
+        
+        # --- 2. Simple compilation and execution ---
+        try:
+            # First, check syntax of both files
+            syntax_check_source = subprocess.run([
+                "gcc", "-c", source_path, "-std=c99", "-Wall"
+            ], cwd=temp_dir, capture_output=True, text=True)
+            
+            syntax_check_test = subprocess.run([
+                "gcc", "-c", test_path, "-std=c99", "-Wall"
+            ], cwd=temp_dir, capture_output=True, text=True)
+            
+            if syntax_check_source.returncode != 0 or syntax_check_test.returncode != 0:
+                return {
+                    "exit_code": 1,
+                    "stdout": "",
+                    "stderr": f"Syntax errors:\nSource: {syntax_check_source.stderr}\nTest: {syntax_check_test.stderr}",
+                    "compilation_success": False
+                }
+            
+            # Compile and link everything together
+            compile_result = subprocess.run([
+                "gcc", "-o", "test_runner", 
+                source_path, test_path,
+                "-std=c99", "-Wall"
+            ], cwd=temp_dir, capture_output=True, text=True, check=True)
+            
+            # Execute the test
+            result = subprocess.run(
+                ["./test_runner"],
+                capture_output=True,
+                text=True,
+                cwd=temp_dir
+            )
+            
+            return {
+                "exit_code": result.returncode,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "compilation_success": True
+            }
+            
+        except subprocess.CalledProcessError as e:
+            return {
+                "exit_code": e.returncode,
+                "stdout": e.stdout,
+                "stderr": e.stderr,
+                "compilation_success": False
+            }
+        except FileNotFoundError:
+            return {
+                "exit_code": -1,
+                "stdout": "",
+                "stderr": "gcc compiler not found. Please install gcc.",
+                "compilation_success": False
+            }
+
 def execute_c_tests_sandboxed(source_code: str, test_code: str) -> Dict[str, Any]:
     """
     Executes C tests using simple C assertions in a temporary environment.

@@ -20,6 +20,9 @@ EXPOSE 8080
 # Set environment variables
 ENV PORT=8080
 ENV GOOGLE_CLOUD_PROJECT=ruckusdevtools
+ENV PYTHONUNBUFFERED=1
 
-# Run the ADK-based web interface
-CMD ["python", "web_interface_adk.py"]
+# # Use gunicorn for production
+# CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--timeout", "300", "web_interface_adk:app"]
+
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--timeout", "300", "web_interface_simple:app"]
