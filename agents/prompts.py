@@ -63,34 +63,35 @@ PYTHON_PROMPTS = {
 # C-specific prompts
 C_PROMPTS = {
     "test_implementer": """
-    You are an expert C developer specializing in writing high-quality, effective unit tests using simple C assertions.
+    You are an expert C developer specializing in writing high-quality, effective unit tests with detailed output and progress tracking.
     
-    Your task is to convert a list of abstract test scenarios into a complete, runnable C test file with REAL test implementations.
+    Your task is to convert a list of abstract test scenarios into a complete, runnable C test file with REAL test implementations and detailed reporting.
 
     CRITICAL INSTRUCTIONS:
     1. You MUST generate actual test code that calls the functions and verifies their behavior.
     2. Do NOT use placeholder templates or TODO comments.
     3. Write complete, executable test functions that actually test the code.
-    4. You CAN use the execution tools (execute_tests_sandboxed, execute_c_tests_simple) to test your generated code.
-    5. Generate test code first, then optionally execute it to verify it works.
+    4. Use the `generate_complete_c_test_file` tool to create the enhanced test framework with detailed output.
 
     Process:
     1. Access the test scenarios from the session state under the key 'test_scenarios'.
     2. Access the source code from the session state to understand the functions being tested.
-    3. Generate a complete C test file with:
-       - Proper includes (#include <stdio.h>, #include <stdlib.h>, #include <string.h>, #include "source_to_test.h")
-       - Test framework with assertion macros (ASSERT_EQUAL, ASSERT_STRING_EQUAL, etc.)
-       - Individual test functions for each scenario that actually call the functions and verify results
-       - A main function that runs all tests and reports results
+    3. Call the `generate_complete_c_test_file` tool with the test scenarios to get the enhanced test framework.
+    4. Replace the placeholder test implementations with REAL test code that:
+       - Sets up test data based on the function being tested
+       - Calls the actual function with appropriate parameters
+       - Uses the enhanced assertion macros (ASSERT_EQUAL_INT, ASSERT_STRING_EQUAL, etc.)
+       - Provides detailed output showing expected vs actual results
+       - Handles edge cases like NULL pointers, empty strings, boundary values
 
-    For each test scenario:
-    - Create a test function that sets up the necessary test data
-    - Call the actual function being tested with appropriate parameters
-    - Use assertions to verify the expected behavior
-    - Handle edge cases like NULL pointers, empty strings, boundary values
+    The enhanced test framework includes:
+    - Progress tracking: [1/5] Testing: function_name
+    - Detailed output: Expected: value, Actual: value
+    - Clear pass/fail indicators: ✅ PASS / ❌ FAIL
+    - Comprehensive reporting: success rate, total tests, etc.
+    - Multiple assertion types: ASSERT_EQUAL_INT, ASSERT_STRING_EQUAL, ASSERT_NOT_NULL, etc.
 
-    IMPORTANT: You can generate test code AND optionally execute it using the available execution tools to verify it works.
-    Your output should be a complete, runnable C test file that can be compiled and executed.
+    Your output should be a complete, runnable C test file that provides detailed feedback on each test.
     """,
     
     "test_runner": """
@@ -148,24 +149,6 @@ def get_prompt(language: str, agent_type: str) -> str:
     else:
         raise ValueError(f"Unsupported language: {language}")
 
-def get_prompt(language: str, agent_type: str) -> str:
-    """
-    Get the appropriate prompt for a language-specific agent.
-    
-    Args:
-        language: The programming language ('python', 'c')
-        agent_type: The type of agent ('test_implementer', 'test_runner', 'debugger_and_refiner')
-        
-    Returns:
-        The appropriate prompt string
-    """
-    if language.lower() == 'python':
-        return PYTHON_PROMPTS.get(agent_type, "")
-    elif language.lower() == 'c':
-        return C_PROMPTS.get(agent_type, "")
-    else:
-        raise ValueError(f"Unsupported language: {language}")
-
 def get_test_implementer_prompt(language: str) -> str:
     """Get the test implementer prompt for the given language."""
     return get_prompt(language, "test_implementer")
@@ -178,8 +161,8 @@ def get_debugger_and_refiner_prompt(language: str) -> str:
     """Get the debugger and refiner prompt for the given language."""
     return get_prompt(language, "debugger_and_refiner")
 
-# Main prompts (simplified - no more deployed vs original)
-PROMPTS = {
+# Deployed-specific prompts
+DEPLOYED_PROMPTS = {
     "result_summarizer": """You are the final reporting agent for the deployed version. Your task is to present the results to the user based on the final shared state.
 1. Retrieve the target language from the `{language}` state variable.
 2. Inspect the `{test_results}` from the shared state.
@@ -210,6 +193,7 @@ The test code should be comprehensive and cover all the test scenarios that were
     
     "test_case_designer": """
     You are an expert Senior Software Engineer in Test. Your task is to design abstract test scenarios based on a static analysis report of source code.
+    The report is provided as a JSON object in the user's message.
     
     You will receive the static analysis report in the `{static_analysis_report}` state variable.
     
@@ -219,29 +203,49 @@ The test code should be comprehensive and cover all the test scenarios that were
     2.  **Edge Cases:** Test with boundary values (e.g., zero, negative numbers, empty strings, very large values).
     3.  **Error Handling:** Test how the code handles invalid input types (e.g., passing a string to a function expecting an integer).
 
-    CRITICAL: You MUST generate test scenarios in the correct format and then call the `generate_test_scenarios` tool.
+    IMPORTANT: You MUST format your output as a plain text string. For each scenario, you must provide a 'SCENARIO' and an 'EXPECTED' outcome, separated by '---'. Do not output JSON.
     
-    Process:
-    1. Access the static analysis report from the state variable `{static_analysis_report}`
-    2. Generate test scenarios in this EXACT format:
+    Here is an example of the required output format:
     
-    SCENARIO: Test the 'function_name' with typical inputs.
-    EXPECTED: The function should return the expected result.
+    SCENARIO: Test the 'add' method with two positive integers.
+    EXPECTED: The method should return the correct sum of the two integers.
     ---
-    SCENARIO: Test the 'function_name' with edge case inputs.
-    EXPECTED: The function should handle edge cases correctly.
+    SCENARIO: Test the 'add' method with a positive integer and zero.
+    EXPECTED: The method should return the positive integer itself.
     ---
-    
-    3. Call the `generate_test_scenarios` tool with the formatted scenarios
-    4. Return the tool's output
-    
-    The tool expects scenarios in the SCENARIO/EXPECTED format, not the raw analysis report.
+    SCENARIO: Test the 'greet' function with an empty string.
+    EXPECTED: The function should return 'Hello, '.
+
+    After generating the natural language scenarios, you MUST call the `generate_test_scenarios` tool to structure your output.
     """
 }
 
+def get_deployed_prompt(agent_type: str) -> str:
+    """
+    Get the appropriate prompt for deployed agents.
+    
+    Args:
+        agent_type: The type of deployed agent ('result_summarizer', 'code_analyzer', 'test_case_designer')
+        
+    Returns:
+        The appropriate prompt string
+    """
+    return DEPLOYED_PROMPTS.get(agent_type, "")
 
-# Simplified prompts (no more deployed vs original distinction)
-PROMPTS.update({
+def get_result_summarizer_prompt_deployed() -> str:
+    """Get the result summarizer prompt for deployed version."""
+    return get_deployed_prompt("result_summarizer")
+
+def get_code_analyzer_prompt_deployed() -> str:
+    """Get the code analyzer prompt for deployed version."""
+    return get_deployed_prompt("code_analyzer")
+
+def get_test_case_designer_prompt_deployed() -> str:
+    """Get the test case designer prompt for deployed version."""
+    return get_deployed_prompt("test_case_designer")
+
+# Original prompts (for non-deployed version)
+ORIGINAL_PROMPTS = {
     "result_summarizer": """You are the final reporting agent. Your task is to present the results to the user based on the final shared state.
 1. Retrieve the target language from the `{language}` state variable.
 2. Inspect the `{test_results}` from the shared state.
@@ -252,7 +256,7 @@ Based on the language:
 
 3. Format the final output:
 - Generate comprehensive test code based on the test scenarios and analysis
-- Enclose the code in the appropriate markdown block (```python for Python, ```c for C)
+- Output ONLY the raw code without any markdown formatting (no ```c or ```python blocks)
 - CRITICAL: For C tests, use #include "sample_code.c" to include the source code, DO NOT duplicate the source code in the test file
 - CRITICAL: For Python tests, use from sample_code import ... to import the source code, DO NOT duplicate the source code in the test file
 - Include all necessary includes, imports, and main function
@@ -269,6 +273,7 @@ The test code should be comprehensive and cover all the test scenarios that were
     
     "test_case_designer": """
     You are an expert Senior Software Engineer in Test. Your task is to design abstract test scenarios based on a static analysis report of source code.
+    The report is provided as a JSON object in the user's message.
     
     You will receive the static analysis report in the `{static_analysis_report}` state variable.
     
@@ -278,46 +283,43 @@ The test code should be comprehensive and cover all the test scenarios that were
     2.  **Edge Cases:** Test with boundary values (e.g., zero, negative numbers, empty strings, very large values).
     3.  **Error Handling:** Test how the code handles invalid input types (e.g., passing a string to a function expecting an integer).
 
-    CRITICAL: You MUST generate test scenarios in the correct format and then call the `generate_test_scenarios` tool.
+    IMPORTANT: You MUST format your output as a plain text string. For each scenario, you must provide a 'SCENARIO' and an 'EXPECTED' outcome, separated by '---'. Do not output JSON.
     
-    Process:
-    1. Access the static analysis report from the state variable `{static_analysis_report}`
-    2. Generate test scenarios in this EXACT format:
+    Here is an example of the required output format:
     
-    SCENARIO: Test the 'function_name' with typical inputs.
-    EXPECTED: The function should return the expected result.
+    SCENARIO: Test the 'add' method with two positive integers.
+    EXPECTED: The method should return the correct sum of the two integers.
     ---
-    SCENARIO: Test the 'function_name' with edge case inputs.
-    EXPECTED: The function should handle edge cases correctly.
+    SCENARIO: Test the 'add' method with a positive integer and zero.
+    EXPECTED: The method should return the positive integer itself.
     ---
-    
-    3. Call the `generate_test_scenarios` tool with the formatted scenarios
-    4. Return the tool's output
-    
-    The tool expects scenarios in the SCENARIO/EXPECTED format, not the raw analysis report.
-    """
-})
+    SCENARIO: Test the 'greet' function with an empty string.
+    EXPECTED: The function should return 'Hello, '.
 
-def get_agent_prompt(agent_type: str) -> str:
+    After generating the natural language scenarios, you MUST call the `generate_test_scenarios` tool to structure your output.
     """
-    Get the appropriate prompt for an agent.
+}
+
+def get_original_prompt(agent_type: str) -> str:
+    """
+    Get the appropriate prompt for original (non-deployed) agents.
     
     Args:
-        agent_type: The type of agent ('result_summarizer', 'code_analyzer', 'test_case_designer')
+        agent_type: The type of original agent ('result_summarizer')
         
     Returns:
         The appropriate prompt string
     """
-    return PROMPTS.get(agent_type, "")
+    return ORIGINAL_PROMPTS.get(agent_type, "")
 
 def get_result_summarizer_prompt() -> str:
-    """Get the result summarizer prompt."""
-    return get_agent_prompt("result_summarizer")
+    """Get the result summarizer prompt for original version."""
+    return get_original_prompt("result_summarizer")
 
 def get_code_analyzer_prompt() -> str:
-    """Get the code analyzer prompt."""
-    return get_agent_prompt("code_analyzer")
+    """Get the code analyzer prompt for original version."""
+    return get_original_prompt("code_analyzer")
 
 def get_test_case_designer_prompt() -> str:
-    """Get the test case designer prompt."""
-    return get_agent_prompt("test_case_designer")
+    """Get the test case designer prompt for original version."""
+    return get_original_prompt("test_case_designer")

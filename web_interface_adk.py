@@ -653,6 +653,22 @@ def upload_file():
         test_code, agent_logs = asyncio.run(call_agent_async(file_url, filename, language, file_content))
         print(f"Agent returned {len(test_code)} characters of test code")
         
+        # Clean the test code by removing markdown code block markers
+        if test_code.strip().startswith('```c'):
+            # Remove ```c from the beginning
+            test_code = test_code.strip()[3:]
+        elif test_code.strip().startswith('```'):
+            # Remove ``` from the beginning
+            test_code = test_code.strip()[3:]
+        
+        if test_code.strip().endswith('```'):
+            # Remove ``` from the end
+            test_code = test_code.strip()[:-3]
+        
+        # Clean up any extra whitespace
+        test_code = test_code.strip()
+        print(f"Cleaned test code: {len(test_code)} characters (removed markdown markers)")
+        
         # Save test code to GCS and get download URL
         print("Saving test code to GCS...")
         # Extract timestamp from the original file URL to maintain consistency
